@@ -1,0 +1,8 @@
+node_modules/
+allure-results/
+allure-report/
+screenshots/
+recordings/
+reports/
+*.log
+.DS_Store
