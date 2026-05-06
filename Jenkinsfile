@@ -19,7 +19,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/gauravpgwl007-maker/Trashscan_Automation.git'
+                git branch: 'main', url: 'https://github.com/gauravpgwl007-maker/TS.git'
             }
         }
 
