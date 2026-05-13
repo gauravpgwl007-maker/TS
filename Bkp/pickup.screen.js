@@ -8,9 +8,7 @@ class PickupScreen {
     get switchCameraBtn()   { return $('id=com.gwl.trashscan:id/imageView_switch_camera'); }
     get flashBtn()          { return $('id=com.gwl.trashscan:id/imageView_flash_camera'); }
     get activityLogsBar()   { return $('id=com.gwl.trashscan:id/tv_activity_log_view'); }
-    get backArrow() {
-    return $('android=new UiSelector().resourceId("com.gwl.trashscan:id/arrow_view")');
-}
+    get arrowView()         { return $('id=com.gwl.trashscan:id/arrow_view'); }
     get bottomSheetLayout() { return $('id=com.gwl.trashscan:id/bottom_sheet_layout'); }
     get barcodeValue()      { return $('id=com.gwl.trashscan:id/barcode_value'); }
 
@@ -65,18 +63,7 @@ class PickupScreen {
         }
     }
 
-    async backFromPickup() {
-
-    await this.backArrow.waitForDisplayed({
-        timeout: 10000
-    });
-
-    await this.backArrow.click();
-
-    console.log('⬅️ Navigated back from Pickup screen');
-
-    await driver.pause(2000);
-}// ================================================================
+    // ================================================================
     // ==== Camera Permission ====
     // ================================================================
     async allowCameraPermissionIfPresent() {
