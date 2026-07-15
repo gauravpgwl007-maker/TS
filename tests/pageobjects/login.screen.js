@@ -7,14 +7,15 @@ class LoginScreen {
      * Handle location permission popup
      */
     async allowLocationPermissionIfPresent() {
-        // Use isDisplayed().catch() — NOT await $() — to avoid immediate findElement API
-        // call that throws WebDriverError when the permission dialog is absent.
-        const allowBtn = $('android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_allow_foreground_only_button")');
-        if (await allowBtn.isDisplayed().catch(() => false)) {
+        try {
+            const allowBtn = await $('android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_allow_foreground_only_button")');
+
+            await allowBtn.waitForDisplayed({ timeout: 5000 });
             await allowBtn.click();
+
             console.log('📍 Location permission allowed');
-        } else {
-            console.log('ℹ️ Location permission popup not shown');
+        } catch (err) {
+            console.log('ℹ️ Permission popup not shown');
         }
     }
 

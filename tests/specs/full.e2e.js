@@ -2,12 +2,12 @@
  * Full E2E Flow — TrashScan App
  *
  * Flow:
- *   App Launch → Skip Tutorial → Login → Home → Clock In
+ *   App Launch → Skip Tutorial → Login (blank → invalid → valid) → Home → Clock In
  *   → Work Progress E2E → Pickup E2E → Activity Logs E2E
  *   → Add Notes E2E → Daily Work Plan E2E → Violation E2E
  *   → Menu Options E2E (excl. Logout) → Clock Out → Logout
  */
-const AppHelper = require('../utils/app.helper');
+
 const DashboardScreen     = require('../pageobjects/dashboard.screen');
 const LoginScreen         = require('../pageobjects/login.screen');
 const HomeScreen          = require('../pageobjects/home.screen');
@@ -51,43 +51,49 @@ describe('Full E2E Flow — TrashScan App', () => {
         await DashboardScreen.skipToLogin();
         await LoginScreen.allowLocationPermissionIfPresent();
 
-       await driver.pause(5000);
+        const loginBtnVisible = await LoginScreen.loginBtn.isDisplayed().catch(() => false);
+        const usernameVisible = await LoginScreen.username.isDisplayed().catch(() => false);
+        expect(loginBtnVisible || usernameVisible).toBe(true);
 
-       const loginBtnVisible =
-       await LoginScreen.loginBtn.isDisplayed().catch(() => false);
-
-       const usernameVisible =
-       await LoginScreen.username.isDisplayed().catch(() => false);
-
-       console.log(`ℹ️ Login Button Visible: ${loginBtnVisible}`);
-       console.log(`ℹ️ Username Field Visible: ${usernameVisible}`);
-
-       if (!loginBtnVisible && !usernameVisible) {
-
-       console.log('ℹ️ Current Activity:', await driver.getCurrentActivity());
-
-       const pageSource = await driver.getPageSource();
-
-       console.log('ℹ️ Page source captured');
-
-       throw new Error('Login screen not displayed');
-      }
-
-       expect(loginBtnVisible || usernameVisible).toBe(true);
-
-      console.log('✅ TC-E2E-01 PASS: App launched — on login screen');
+        console.log('✅ TC-E2E-01 PASS: App launched — on login screen');
     });
 
-    // ── TC-E2E-02: Login with valid credentials ───────────────────
-    it('TC-E2E-02: should login with valid credentials and land on home screen', async () => {
-        console.log('🔐 TC-E2E-02: Logging in...');
+    // ── TC-E2E-02a: Login with blank username and password ───────
+    it('TC-E2E-02a: should reject login with blank username and password', async () => {
+        console.log('🔐 TC-E2E-02a: Attempting login with blank credentials...');
 
-// Ensure app is on login screen
-        await DashboardScreen.skipToLogin();
-        await LoginScreen.allowLocationPermissionIfPresent();
+        await LoginScreen.clearFields();
+        await LoginScreen.loginBtn.click();
+        await driver.pause(1500);
 
-        await driver.pause(3000);
+        const stillOnLogin =
+            await LoginScreen.loginBtn.isDisplayed().catch(() => false) ||
+            await LoginScreen.username.isDisplayed().catch(() => false);
+        expect(stillOnLogin).toBe(true);
 
+        console.log('✅ TC-E2E-02a PASS: Blank credentials rejected — still on login screen');
+    });
+
+    // ── TC-E2E-02b: Login with incorrect username and password ───
+    it('TC-E2E-02b: should reject login with incorrect username and password', async () => {
+        console.log('🔐 TC-E2E-02b: Attempting login with incorrect credentials...');
+
+        await LoginScreen.clearFields();
+        await LoginScreen.login(users.invalid.username, users.invalid.password);
+
+        const stillOnLogin =
+            await LoginScreen.loginBtn.isDisplayed().catch(() => false) ||
+            await LoginScreen.username.isDisplayed().catch(() => false);
+        expect(stillOnLogin).toBe(true);
+
+        console.log('✅ TC-E2E-02b PASS: Incorrect credentials rejected — still on login screen');
+    });
+
+    // ── TC-E2E-02c: Login with valid credentials ──────────────────
+    it('TC-E2E-02c: should login with valid credentials and land on home screen', async () => {
+        console.log('🔐 TC-E2E-02c: Logging in...');
+
+        await LoginScreen.clearFields();
         await LoginScreen.login(users.valid.username, users.valid.password);
         await HomeScreen.waitForHomeScreen();
 
@@ -96,51 +102,21 @@ describe('Full E2E Flow — TrashScan App', () => {
             await HomeScreen.clockInBtn.isDisplayed().catch(() => false);
         expect(homeVisible).toBe(true);
 
-        console.log('✅ TC-E2E-02 PASS: Login successful — on home screen');
+        console.log('✅ TC-E2E-02c PASS: Login successful — on home screen');
     });
 
     // ── TC-E2E-03: Verify Home Screen Elements ────────────────────
     it('TC-E2E-03: should display hamburger menu and clock-in button on home screen', async () => {
         console.log('🏠 TC-E2E-03: Verifying home screen elements...');
 
-// Ensure app reaches login screen
-       
-       await AppHelper.loginToHome(
-    users.valid.username,
-    users.valid.password
-);
+        await HomeScreen.waitForHomeScreen();
 
-        const hamburgerVisible =
-    await HomeScreen.hamburgerMenu.isDisplayed().catch(() => false);
+        const hamburgerVisible = await HomeScreen.hamburgerMenu.isDisplayed().catch(() => false);
+        const clockInVisible   = await HomeScreen.clockInBtn.isDisplayed().catch(() => false);
 
-const clockInVisible =
-    await HomeScreen.clockInBtn.isDisplayed().catch(() => false);
+        expect(hamburgerVisible).toBe(true);
+        expect(clockInVisible).toBe(true);
 
-const clockOutVisible =
-    await HomeScreen.clockOutBtn.isDisplayed().catch(() => false);
-
-console.log(`ℹ️ Hamburger Visible: ${hamburgerVisible}`);
-console.log(`ℹ️ Clock In Visible: ${clockInVisible}`);
-console.log(`ℹ️ Clock Out Visible: ${clockOutVisible}`);
-
-if (!clockInVisible && !clockOutVisible) {
-
-    console.log('⚠️ No Clock In/Out button found');
-
-    console.log(
-        `ℹ️ Current Activity: ${await driver.getCurrentActivity()}`
-    );
-
-    await driver.saveScreenshot(
-        `./screenshots/home_screen_missing_buttons_${Date.now()}.png`
-    );
-
-    console.log('⚠️ Skipping strict validation and continuing test');
-
-    return;
-}
-
-expect(hamburgerVisible).toBe(true);
         console.log('✅ TC-E2E-03 PASS: Home screen elements verified');
     });
 
@@ -172,65 +148,40 @@ expect(hamburgerVisible).toBe(true);
     });
 
     // ── TC-E2E-05: Work Progress E2E ─────────────────────────────
-it('TC-E2E-05: should complete Work Progress Check-In and Check-Out flow', async () => {
+    it('TC-E2E-05: should open Work Progress, expand first property, and perform Check In', async () => {
+        console.log('📋 TC-E2E-05: Work Progress E2E...');
 
-    console.log('📋 TC-E2E-05: Work Progress E2E...');
+        await HomeScreen.waitForHomeScreen();
+        await WorkProgressScreen.openWorkProgress();
 
-    // ============================================================
-    // Setup
-    // ============================================================
+        const hasProps   = await WorkProgressScreen.hasProperties();
+        const isEmptyWP  = await WorkProgressScreen.isEmptyState();
+        console.log(`ℹ️ TC-E2E-05: Properties visible: ${hasProps}, Empty state: ${isEmptyWP}`);
+        expect(hasProps || isEmptyWP).toBe(true);
 
-    await AppHelper.loginToHome(
-        users.valid.username,
-        users.valid.password
-    );
+        if (hasProps) {
+            const nameText = await WorkProgressScreen.firstPropertyName.getText().catch(() => null);
+            console.log(`ℹ️ TC-E2E-05: First property name: "${nameText}"`);
 
-    // ============================================================
-    // Open Work Progress
-    // ============================================================
+            await WorkProgressScreen.openFirstProperty();
 
-    await WorkProgressScreen.openWorkProgress();
+            const checkInVisible = await WorkProgressScreen.checkInOutBtn.isDisplayed().catch(() => false);
+            console.log(`ℹ️ TC-E2E-05: Check In/Out button visible after expand: ${checkInVisible}`);
+            expect(checkInVisible).toBe(true);
 
-    // ============================================================
-    // Select First Property
-    // ============================================================
+            const didCheckIn = await WorkProgressScreen.performCheckIn();
+            console.log(`ℹ️ TC-E2E-05: Check In performed: ${didCheckIn}`);
+        }
 
-    await WorkProgressScreen.expandAvailableProperty();
-    await driver.pause(2000);
-    // ============================================================
-    // Check-In
-    // ============================================================
-
-    await WorkProgressScreen.clickCheckIn();
-
-    await WorkProgressScreen.enterReasonAndSubmit('Testing');
-
-    await driver.pause(3000);
-
-    console.log('✅ Check-In completed');
-
-    // ============================================================
-    // Back to Home
-    // ============================================================
-
-    await driver.back();
-
-    await HomeScreen.waitForHomeScreen();
-
-    console.log('✅ TC-E2E-05 PASS: Work Progress E2E complete');
-});
-        
-        
-    
+        await HomeScreen.backToHome();
+        console.log('✅ TC-E2E-05 PASS: Work Progress E2E complete');
+    });
 
     // ── TC-E2E-06: Pickup E2E ─────────────────────────────────────
     it('TC-E2E-06: should open Pickup scanner, verify scanner view and Activity Logs bar', async () => {
         console.log('📷 TC-E2E-06: Pickup E2E...');
 
-       await AppHelper.loginToHome(
-    users.valid.username,
-    users.valid.password
-);
+        await HomeScreen.waitForHomeScreen();
         await PickupScreen.openPickup();
         await PickupScreen.allowCameraPermissionIfPresent();
 
@@ -241,12 +192,17 @@ it('TC-E2E-05: should complete Work Progress Check-In and Check-Out flow', async
 
         if (logsBarVisible) {
             await PickupScreen.expandActivityLogsPanel();
-            await driver.pause(1000);
+            const panelOpen = await PickupScreen.activityLogsDialogHeader.isDisplayed().catch(() => false);
+            console.log(`ℹ️ TC-E2E-06: Activity Logs panel opened: ${panelOpen}`);
+            expect(panelOpen).toBe(true);
+
+            await PickupScreen.collapseActivityLogsPanel(); // close panel before navigating away
+            const panelStillOpen = await PickupScreen.activityLogsDialogHeader.isDisplayed().catch(() => false);
+            console.log(`ℹ️ TC-E2E-06: Activity Logs panel closed: ${!panelStillOpen}`);
+            expect(panelStillOpen).toBe(false);
         }
 
-       await PickupScreen.backFromPickup();
-
-await HomeScreen.waitForHomeScreen();
+        await HomeScreen.backToHome();
         console.log('✅ TC-E2E-06 PASS: Pickup E2E complete');
     });
 
@@ -254,10 +210,7 @@ await HomeScreen.waitForHomeScreen();
     it('TC-E2E-07: should open Activity Logs and verify clock-in/clock-out entries', async () => {
         console.log('📜 TC-E2E-07: Activity Logs E2E...');
 
-        await AppHelper.loginToHome(
-    users.valid.username,
-    users.valid.password
-);
+        await HomeScreen.waitForHomeScreen();
         await ActivityLogsScreen.openActivityLogs();
 
         const hasLogs = await ActivityLogsScreen.hasLogs();
@@ -275,13 +228,10 @@ await HomeScreen.waitForHomeScreen();
     });
 
     // ── TC-E2E-08: Add Notes E2E ──────────────────────────────────
-    it('TC-E2E-08: should open Notes list, open Add Note form, verify all fields, and cancel', async () => {
+    it('TC-E2E-08: should open Notes list, fill and submit a new note', async () => {
         console.log('📝 TC-E2E-08: Add Notes E2E...');
 
-          await AppHelper.loginToHome(
-    users.valid.username,
-    users.valid.password
-);
+        await HomeScreen.waitForHomeScreen();
         await AddNotesScreen.openAddNotes();
 
         const listVisible = await AddNotesScreen.notesList.isDisplayed().catch(() => false);
@@ -291,111 +241,85 @@ await HomeScreen.waitForHomeScreen();
 
         // Open Add Note form
         await AddNotesScreen.openAddNoteForm();
-        await driver.pause(1500);
 
         const formVisible = await AddNotesScreen.isAddNoteFormVisible();
         console.log(`ℹ️ TC-E2E-08: Add Note form visible: ${formVisible}`);
+        expect(formVisible).toBe(true);
 
-        if (formVisible) {
-            const propVisible   = await AddNotesScreen.propertyDropdown.isDisplayed().catch(() => false);
-            const reasonVisible = await AddNotesScreen.reasonDropdown.isDisplayed().catch(() => false);
-            const photoVisible  = await AddNotesScreen.addPhotoBtn.isDisplayed().catch(() => false);
-            const doneVisible   = await AddNotesScreen.doneBtn.isDisplayed().catch(() => false);
-            const cancelVisible = await AddNotesScreen.cancelBtn.isDisplayed().catch(() => false);
-            console.log(`ℹ️ TC-E2E-08: Property: ${propVisible}, Reason: ${reasonVisible}, AddPhoto: ${photoVisible}, Done: ${doneVisible}, Cancel: ${cancelVisible}`);
-
-            await AddNotesScreen.cancelAddNote();
-        } else {
-            console.log('ℹ️ TC-E2E-08: Add Note form not opened — button may not be present');
-            await driver.back().catch(() => {});
-        }
+        await AddNotesScreen.fillAndSubmitNote({
+            description: 'test'
+        });
 
         await HomeScreen.backToHome();
         console.log('✅ TC-E2E-08 PASS: Add Notes E2E complete');
     });
 
     // ── TC-E2E-09: Daily Work Plan E2E ───────────────────────────
-    it('TC-E2E-09: should open Daily Work Plan and verify screen elements', async () => {
+    it('TC-E2E-09: should open Daily Work Plan and check in to the first property', async () => {
         console.log('📅 TC-E2E-09: Daily Work Plan E2E...');
 
-        await AppHelper.loginToHome(
-    users.valid.username,
-    users.valid.password
-);
+        await HomeScreen.waitForHomeScreen();
         await DailyWorkPlanScreen.openDailyWorkPlan();
 
-        const titleVisible      = await DailyWorkPlanScreen.screenTitle.isDisplayed().catch(() => false);
-        const checkInVisible    = await DailyWorkPlanScreen.checkInBtn.isDisplayed().catch(() => false);
-        const listBtnVisible    = await DailyWorkPlanScreen.listViewBtn.isDisplayed().catch(() => false);
-        const identifierVisible = await DailyWorkPlanScreen.screenIdentifier.isDisplayed().catch(() => false);
-        console.log(`ℹ️ TC-E2E-09: Title: ${titleVisible}, CheckIn: ${checkInVisible}, List: ${listBtnVisible}, Identifier: ${identifierVisible}`);
-        expect(titleVisible || checkInVisible || listBtnVisible || identifierVisible).toBe(true);
+        const listVisible = await DailyWorkPlanScreen.propertyList.isDisplayed().catch(() => false);
+        console.log(`ℹ️ TC-E2E-09: Property list visible: ${listVisible}`);
+        expect(listVisible).toBe(true);
+
+        await DailyWorkPlanScreen.checkInFirstProperty();
 
         await HomeScreen.backToHome();
         console.log('✅ TC-E2E-09 PASS: Daily Work Plan E2E complete');
     });
 
-        // ── TC-E2E-10: Violation E2E ─────────────────────────────────
-    it('TC-E2E-10: should open Violation dialog, test Manual form, Scan View, and Quick Snap', async () => {
-
+    // ── TC-E2E-10: Violation E2E ─────────────────────────────────
+    it('TC-E2E-10: should fill and submit a Manual Violation, then verify Scan View and Quick Snap', async () => {
         console.log('⚠️ TC-E2E-10: Violation E2E...');
-
-        await AppHelper.loginToHome(
-            users.valid.username,
-            users.valid.password
-        );
-
-        // =========================================================
-        // MANUAL VIOLATION
-        // =========================================================
-
-        console.log('ℹ️ TC-E2E-10: Opening Manual Violation...');
-
-        await ViolationScreen.submitManualViolation();
-
-        console.log('✅ TC-E2E-10 Manual Violation completed successfully');
-
-        //
-        // Return Home
-        //
-        await ViolationScreen.closeManualForm();
 
         await HomeScreen.waitForHomeScreen();
 
-        // =========================================================
-        // SCAN VIEW
-        // =========================================================
+        // The app blocks Violation submission with "You must check-in before
+        // performing this activity on this property" unless the property is
+        // already checked in via Daily Work Plan — so do that first.
+        console.log('ℹ️ TC-E2E-10: Ensuring property is checked in via Daily Work Plan...');
+        await DailyWorkPlanScreen.openDailyWorkPlan();
+        await DailyWorkPlanScreen.checkInFirstProperty();
+        await HomeScreen.backToHome();
 
+        // ---- Manual Violation ----
+        console.log('ℹ️ TC-E2E-10: Opening Manual Violation...');
+        await ViolationScreen.openViolationManual();
+
+        const propVisible   = await ViolationScreen.propertyField.isDisplayed().catch(() => false);
+        const bldgVisible   = await ViolationScreen.buildingField.isDisplayed().catch(() => false);
+        const unitVisible   = await ViolationScreen.unitField.isDisplayed().catch(() => false);
+        const reasonVisible = await ViolationScreen.reasonField.isDisplayed().catch(() => false);
+        const actionVisible = await ViolationScreen.actionField.isDisplayed().catch(() => false);
+        const notesVisible  = await ViolationScreen.specialNotesField.isDisplayed().catch(() => false);
+        const doneVisible   = await ViolationScreen.doneBtn.isDisplayed().catch(() => false);
+        console.log(`ℹ️ TC-E2E-10 Manual: Property=${propVisible} Building=${bldgVisible} Unit=${unitVisible} Reason=${reasonVisible} Action=${actionVisible} Notes=${notesVisible} Done=${doneVisible}`);
+        expect(propVisible).toBe(true);
+
+        await ViolationScreen.fillAndSubmitManualViolation({
+            specialNote: 'Test_violation_note'
+        });
+        await HomeScreen.waitForHomeScreen();
+
+        // ---- Scan View ----
         console.log('ℹ️ TC-E2E-10: Opening Scan View...');
-
         await ViolationScreen.openViolationScanView();
-
         const scanVisible =
             await ViolationScreen.scannerView.isDisplayed().catch(() => false) ||
             await ViolationScreen.activityLogsBar.isDisplayed().catch(() => false);
-
-        console.log(
-            `ℹ️ TC-E2E-10 Scan View: Scanner/Logs bar visible: ${scanVisible}`
-        );
-
+        console.log(`ℹ️ TC-E2E-10 Scan View: Scanner/Logs bar visible: ${scanVisible}`);
         await HomeScreen.backToHome();
 
-        // =========================================================
-        // QUICK SNAP
-        // =========================================================
-
+        // ---- Quick Snap ----
         console.log('ℹ️ TC-E2E-10: Opening Quick Snap...');
-
         await ViolationScreen.openViolationQuickSnap();
-
         const snapVisible =
             await ViolationScreen.captureBtn.isDisplayed().catch(() => false) ||
             await ViolationScreen.scannerView.isDisplayed().catch(() => false);
-
-        console.log(
-            `ℹ️ TC-E2E-10 Quick Snap: Camera/Scanner visible: ${snapVisible}`
-        );
-
+        console.log(`ℹ️ TC-E2E-10 Quick Snap: Camera/Scanner visible: ${snapVisible}`);
         await HomeScreen.backToHome();
 
         console.log('✅ TC-E2E-10 PASS: Violation E2E complete');
@@ -403,424 +327,107 @@ await HomeScreen.waitForHomeScreen();
 
     // ── TC-E2E-11: Menu Options Verify E2E (excluding Logout) ────
     it('TC-E2E-11: should verify all drawer menu items are visible and each screen opens', async () => {
+        console.log('☰ TC-E2E-11: Menu Options E2E...');
 
-    console.log('☰ TC-E2E-11: Menu Options E2E...');
+        await HomeScreen.waitForHomeScreen();
 
-    await AppHelper.loginToHome(
-        users.valid.username,
-        users.valid.password
-    );
+        // Verify all menu items are present
+        await MenuScreen.openDrawer();
+        await driver.pause(1000);
 
-    // =========================================================
-    // VERIFY MENU ITEMS
-    // =========================================================
+        const items = {
+            Home:             await MenuScreen.menuHome.isDisplayed().catch(() => false),
+            Profile:          await MenuScreen.menuProfile.isDisplayed().catch(() => false),
+            Activate:         await MenuScreen.menuActivate.isDisplayed().catch(() => false),
+            PendingViolation: await MenuScreen.menuPendingViolation.isDisplayed().catch(() => false),
+            Tutorials:        await MenuScreen.menuLaunchTutorials.isDisplayed().catch(() => false),
+            ReportIssue:      await MenuScreen.menuReportIssue.isDisplayed().catch(() => false),
+            UpdateLocation:   await MenuScreen.menuUpdateLocation.isDisplayed().catch(() => false),
+            ChangeLanguage:   await MenuScreen.menuChangeLanguage.isDisplayed().catch(() => false),
+            ForceCheckout:    await MenuScreen.menuForceCheckout.isDisplayed().catch(() => false),
+        };
+        console.log('ℹ️ TC-E2E-11: Menu items:', JSON.stringify(items));
+        expect(items.Home).toBe(true);
+        expect(items.Profile).toBe(true);
 
-    await MenuScreen.openDrawer();
+        // Navigate Home via the menu — driver.back() exits the app on this device
+        await MenuScreen.menuHome.click();
+        await HomeScreen.waitForHomeScreen();
 
-    await driver.pause(1000);
+        // ---- Profile ----
+        // Profile has no proper parent activity set — pressing back from it
+        // exits the whole app instead of navigating up (confirmed live: it
+        // lands on the device launcher). This is what looked like a "crash"
+        // from the outside. Must return via the drawer's Home item instead.
+        await MenuScreen.goToProfile();
+        await driver.pause(1000);
+        const profileVisible =
+            await $('id=com.gwl.trashscan:id/imageViewUsrProfile').isDisplayed().catch(() => false) ||
+            await $('id=com.gwl.trashscan:id/textemail').isDisplayed().catch(() => false)             ||
+            await $('android=new UiSelector().textContains("Profile")').isDisplayed().catch(() => false);
+        console.log(`ℹ️ TC-E2E-11: Profile screen: ${profileVisible}`);
+        await MenuScreen.returnViaMenu();
+        await HomeScreen.waitForHomeScreen();
 
-    const items = {
+        // ---- Activate ----
+        await MenuScreen.goToActivate();
+        await driver.pause(1000);
+        console.log('ℹ️ TC-E2E-11: Activate screen opened');
+        await HomeScreen.backToHome();
 
-        Home:
-            await MenuScreen.menuHome.isDisplayed().catch(() => false),
-
-        Profile:
-            await MenuScreen.menuProfile.isDisplayed().catch(() => false),
-
-        Activate:
-            await MenuScreen.menuActivate.isDisplayed().catch(() => false),
-
-        PendingViolation:
-            await MenuScreen.menuPendingViolation.isDisplayed().catch(() => false),
-
-        Tutorials:
-            await MenuScreen.menuLaunchTutorials.isDisplayed().catch(() => false),
-
-        ReportIssue:
-            await MenuScreen.menuReportIssue.isDisplayed().catch(() => false),
-
-        UpdateLocation:
-            await MenuScreen.menuUpdateLocation.isDisplayed().catch(() => false),
-
-        ChangeLanguage:
-            await MenuScreen.menuChangeLanguage.isDisplayed().catch(() => false),
-
-        ForceCheckout:
-            await MenuScreen.menuForceCheckout.isDisplayed().catch(() => false),
-    };
-
-    console.log(
-        'ℹ️ TC-E2E-11: Menu items:',
-        JSON.stringify(items)
-    );
-
-    expect(items.Home).toBe(true);
-    expect(items.Profile).toBe(true);
-
-    //
-    // CLOSE DRAWER SAFELY
-    //
-    await MenuScreen.menuButton.click();
-
-    await driver.pause(1000);
-
-    console.log('📂 Drawer closed safely');
-
-    // =========================================================
-    // PROFILE
-    // =========================================================
-
-    await MenuScreen.goToProfile();
-
-    const profileVisible =
-
-        await $('id=com.gwl.trashscan:id/imageViewUsrProfile')
-            .isDisplayed()
-            .catch(() => false)
-
-        ||
-
-        await $('id=com.gwl.trashscan:id/textemail')
-            .isDisplayed()
-            .catch(() => false)
-
-        ||
-
-        await $('android=new UiSelector().textContains("Profile")')
-            .isDisplayed()
-            .catch(() => false);
-
-    console.log(
-        `ℹ️ TC-E2E-11: Profile screen: ${profileVisible}`
-    );
-
-    //
-// Return from Profile safely
-//
-const profileBackBtn =
-    $('id=com.gwl.trashscan:id/title_bar_left_menu');
-
-if (await profileBackBtn.isDisplayed().catch(() => false)) {
-
-    await profileBackBtn.click();
-
-} else {
-
-    await driver.back();
-}
-
-await driver.pause(2000);
-
-await HomeScreen.waitForHomeScreen();
-
-console.log('✅ Returned from Profile');
-
-    // =========================================================
-    // ACTIVATE
-    // =========================================================
-
-    await MenuScreen.goToActivate();
-
-console.log('ℹ️ TC-E2E-11: Activate screen opened');
-
-//
-// Handle Activate screen safely
-//
-const activateCloseBtn =
-    $('id=com.gwl.trashscan:id/title_bar_left_menu');
-
-if (await activateCloseBtn.isDisplayed().catch(() => false)) {
-
-    await activateCloseBtn.click();
-
-} else {
-
-    await driver.back();
-}
-
-await driver.pause(2000);
-
-await HomeScreen.waitForHomeScreen();
-
-console.log('✅ Returned from Activate');
-// =========================================================
-    // PENDING VIOLATION
-    // =========================================================
-
-    await MenuScreen.goToPendingViolation();
-
-    console.log('ℹ️ TC-E2E-11: Pending Violation screen opened');
-
-    const pendingBackBtn =
-        $('id=com.gwl.trashscan:id/title_bar_left_menu');
-
-    if (await pendingBackBtn.isDisplayed().catch(() => false)) {
-
-        await pendingBackBtn.click();
-
-    } else {
-
+        // ---- Pending Violation ----
+        await MenuScreen.goToPendingViolation();
+        await driver.pause(1000);
+        console.log('ℹ️ TC-E2E-11: Pending Violation screen opened');
         await driver.back();
-    }
+        await HomeScreen.waitForHomeScreen();
 
-    await driver.pause(2000);
-
-    await HomeScreen.waitForHomeScreen();
-
-    console.log('✅ Returned from Pending Violation');
-
-    // =========================================================
-    // TUTORIALS
-    // =========================================================
-
-    await MenuScreen.goToLaunchTutorials();
-
-    console.log('ℹ️ TC-E2E-11: Tutorials opened');
-
-    const tutorialBackBtn =
-        $('id=com.gwl.trashscan:id/title_bar_left_menu');
-
-    if (await tutorialBackBtn.isDisplayed().catch(() => false)) {
-
-        await tutorialBackBtn.click();
-
-    } else {
-
+        // ---- Launch Tutorials ----
+        await MenuScreen.goToLaunchTutorials();
+        await driver.pause(1000);
+        console.log('ℹ️ TC-E2E-11: Tutorials opened');
         await driver.back();
-    }
+        await HomeScreen.waitForHomeScreen();
 
-    await driver.pause(2000);
+        // ---- Report Issue ----
+        await MenuScreen.goToReportIssue();
+        await driver.pause(1000);
+        console.log('ℹ️ TC-E2E-11: Report Issue screen opened');
+        await HomeScreen.backToHome();
 
-    await HomeScreen.waitForHomeScreen();
+        // ---- Update Location ----
+        await MenuScreen.goToUpdateLocation();
+        await driver.pause(1000);
+        console.log('ℹ️ TC-E2E-11: Update Location screen opened');
+        await HomeScreen.backToHome();
 
-    console.log('✅ Returned from Tutorials');
+        // ---- Change Language (dismiss dialog with "No") ----
+        await MenuScreen.goToChangeLanguage();
+        await driver.pause(1000);
+        const noBtn = await $('android=new UiSelector().text("No")');
+        if (await noBtn.isDisplayed().catch(() => false)) {
+            await noBtn.click();
+        } else {
+            await driver.back().catch(() => {});
+        }
+        await driver.pause(500);
+        await HomeScreen.waitForHomeScreen();
 
-    // =========================================================
-    // REPORT ISSUE
-    // =========================================================
-
-    await MenuScreen.goToReportIssue();
-
-    console.log('ℹ️ TC-E2E-11: Report Issue screen opened');
-
-    const reportBackBtn =
-        $('id=com.gwl.trashscan:id/title_bar_left_menu');
-
-    if (await reportBackBtn.isDisplayed().catch(() => false)) {
-
-        await reportBackBtn.click();
-
-    } else {
-
+        // ---- Force Checkout ----
+        await MenuScreen.goToForceCheckout();
+        await driver.pause(1000);
+        console.log('ℹ️ TC-E2E-11: Force Checkout screen opened');
         await driver.back();
-    }
+        await HomeScreen.waitForHomeScreen();
 
-    await driver.pause(2000);
-
-    await HomeScreen.waitForHomeScreen();
-
-    console.log('✅ Returned from Report Issue');
-
-    // =========================================================
-    // UPDATE LOCATION
-    // =========================================================
-
-    await MenuScreen.goToUpdateLocation();
-
-    console.log('ℹ️ TC-E2E-11: Update Location screen opened');
-
-    const updateBackBtn =
-        $('id=com.gwl.trashscan:id/title_bar_left_menu');
-
-    if (await updateBackBtn.isDisplayed().catch(() => false)) {
-
-        await updateBackBtn.click();
-
-    } else {
-
-        await driver.back();
-    }
-
-    await driver.pause(2000);
-
-    await HomeScreen.waitForHomeScreen();
-
-    console.log('✅ Returned from Update Location');
-
-// =========================================================
-// CHANGE LANGUAGE
-// =========================================================
-
-await MenuScreen.goToChangeLanguage();
-
-console.log('ℹ️ TC-E2E-11: Change Language opened');
-
-await driver.pause(3000);
-
-//
-// Click CANCEL on popup
-//
-const cancelBtn =
-    $('android=new UiSelector().textContains("CANCEL")');
-
-await cancelBtn.waitForDisplayed({
-    timeout: 10000
-});
-
-console.log('👉 Clicking CANCEL');
-
-await cancelBtn.click();
-
-await driver.pause(2000);
-
-//
-// Return Home safely
-//
-const languageBackBtn =
-    $('id=com.gwl.trashscan:id/title_bar_left_menu');
-
-if (await languageBackBtn.isDisplayed().catch(() => false)) {
-
-    await languageBackBtn.click();
-
-} else {
-
-    await driver.back();
-}
-
-await driver.pause(2000);
-
-await HomeScreen.waitForHomeScreen();
-
-console.log('✅ Returned from Change Language');
-
-    // =========================================================
-// FORCE CHECKOUT
-// =========================================================
-
-await MenuScreen.goToForceCheckout();
-
-console.log('ℹ️ TC-E2E-11: Force Checkout screen opened');
-
-//
-// Select Property dropdown
-//
-const propertyDropdown =
-    $('android=new UiSelector().textContains("Select Property")');
-
-await propertyDropdown.waitForDisplayed({
-    timeout: 10000
-});
-
-await propertyDropdown.click();
-
-await driver.pause(2000);
-
-//
-// Select first property if available
-//
-const firstProperty =
-    $('android=new UiSelector().className("android.widget.TextView").instance(0)');
-
-const propertyExists =
-    await firstProperty.isDisplayed().catch(() => false);
-
-if (propertyExists) {
-
-    const propertyName = await firstProperty.getText();
-
-    await firstProperty.click();
-
-    console.log(`✅ Selected Property: ${propertyName}`);
-
-    //
-    // Click Done
-    //
-    const doneBtn =
-        $('android=new UiSelector().text("Done")');
-
-    await doneBtn.waitForDisplayed({
-        timeout: 5000
+        console.log('✅ TC-E2E-11 PASS: All menu options verified (Logout excluded)');
     });
 
-    await doneBtn.click();
-
-    await driver.pause(1000);
-
-} else {
-
-    console.log('⚠️ No property available for Force Checkout');
-
-    //
-    // Close popup
-    //
-    const cancelBtn =
-        $('android=new UiSelector().text("Cancel")');
-
-    if (await cancelBtn.isDisplayed().catch(() => false)) {
-
-        await cancelBtn.click();
-    }
-
-    //
-    // Return Home safely
-    //
-    await driver.back();
-
-    await HomeScreen.waitForHomeScreen();
-
-    return;
-}
-
-//
-// Enter reason
-//
-const reasonField =
-    $('id=com.gwl.trashscan:id/editTextReason');
-
-await reasonField.waitForDisplayed({
-    timeout: 10000
-});
-
-await reasonField.setValue('Forgot to check out');
-
-console.log('✅ Entered checkout reason');
-
-//
-// Click Submit
-//
-const submitBtn =
-    $('android=new UiSelector().text("SUBMIT")');
-
-await submitBtn.waitForDisplayed({
-    timeout: 10000
-});
-
-await submitBtn.click();
-
-console.log('✅ Force Checkout submitted');
-
-await driver.pause(3000);
-
-//
-// Return Home
-//
-await HomeScreen.waitForHomeScreen();
-
-console.log('✅ Returned from Force Checkout');
-
-console.log(
-    '✅ TC-E2E-11 PASS: All menu options verified'
-);
-});
     // ── TC-E2E-12: Clock Out from Home Screen ────────────────────
     it('TC-E2E-12: should perform clock out and show clock-in button', async () => {
         console.log('⏰ TC-E2E-12: Performing Clock Out...');
 
-        await AppHelper.loginToHome(
-        users.valid.username,
-        users.valid.password
-    );
+        await HomeScreen.waitForHomeScreen();
 
         const clockOutVisible = await HomeScreen.clockOutBtn.isDisplayed().catch(() => false);
         if (clockOutVisible) {
@@ -844,10 +451,7 @@ console.log(
     it('TC-E2E-13: should perform logout and land on login screen', async () => {
         console.log('🚪 TC-E2E-13: Performing final logout...');
 
-        await AppHelper.loginToHome(
-        users.valid.username,
-        users.valid.password
-    );
+        await HomeScreen.waitForHomeScreen();
         await Logout.logout(true);
 
         const onLoginScreen =

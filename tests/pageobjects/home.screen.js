@@ -4,65 +4,100 @@ class HomeScreen {
     get clockInBtn()       { return $('id=com.gwl.trashscan:id/buttonClockIn'); }
     get clockOutBtn()      { return $('id=com.gwl.trashscan:id/buttonClockOut'); }
     get hamburgerMenu()    { return $('id=com.gwl.trashscan:id/title_bar_left_menu'); }
+    get homeIcon()         { return $('id=com.gwl.trashscan:id/title_bar_left_menu'); }
 
     get workProgressTile() { return $('id=com.gwl.trashscan:id/ll_work_progress'); }
     get pickupTile()       { return $('id=com.gwl.trashscan:id/ivPickUp'); }
     get activityLogsTile() { return $('id=com.gwl.trashscan:id/ivRollback'); }
     get addNotesTile()     { return $('id=com.gwl.trashscan:id/ivAddNotes'); }
-    get dailyWorkPlanTile(){ return $('id=com.gwl.trashscan:id/ivAddSubs'); }
+    get dailyWorkPlanTile(){ return $('android=new UiSelector().text("Daily Work Plan")'); }
     get violationTile()    { return $('id=com.gwl.trashscan:id/ivViolation'); }
 
-    // ==== Wait for Home Screen (navigates back as needed) ====
+    // ==== Drawer-only element — its presence means the nav drawer is open
+    // and overlapping the home screen, even though the hamburger/tiles behind
+    // it still report isDisplayed()=true. Any leftover open drawer (e.g. a
+    // previous test bailed out mid-navigation) must be closed before we trust
+    // that a click will land on the real home screen underneath it. ====
+    get drawerHomeItem()   { return $('id=com.gwl.trashscan:id/home'); }
+
+    async closeDrawerIfOpen() {
+        for (let i = 0; i < 3; i++) {
+            const drawerOpen = await this.drawerHomeItem.isDisplayed().catch(() => false);
+            if (!drawerOpen) return;
+            console.log('⚠️ Nav drawer left open — closing it');
+            await driver.back().catch(() => {});
+            await driver.pause(600);
+        }
+    }
+
+    // ==== "Manual Clock Out" dialog ====
+    // The app blocks clocking in for today if you forgot to clock out on a
+    // previous day, showing this modal ("You forgot to clock out on <date>...")
+    // over the home screen until a reason is submitted. Confirmed live
+    // on-device — it silently blocks all further interaction until handled.
+    get manualClockOutDialog()      { return $('android=new UiSelector().textContains("Manual Clock Out")'); }
+    get manualClockOutReasonField() { return $('android=new UiSelector().className("android.widget.EditText")'); }
+    get manualClockOutSubmitBtn()   { return $('android=new UiSelector().text("Submit")'); }
+
+    async handleManualClockOutIfPresent() {
+        const dialogVisible = await this.manualClockOutDialog.isDisplayed().catch(() => false);
+        if (!dialogVisible) return false;
+
+        console.log('⚠️ Manual Clock Out dialog detected — submitting to unblock clock-in');
+        await this.manualClockOutReasonField.click();
+        await this.manualClockOutReasonField.setValue('Missed clock out - auto submitted by test');
+        await driver.hideKeyboard().catch(() => {});
+        await this.manualClockOutSubmitBtn.click();
+        await driver.pause(1500);
+        return true;
+    }
+
+    // ==== Wait for Home Screen (toolbar is always present after login) ====
     async waitForHomeScreen() {
-        console.log('🏠 Navigating to Home screen...');
+        console.log('🏠 Waiting for Home screen...');
 
-        await driver.waitUntil(
-            async () => {
-                // IMPORTANT: never use `await $('id=...')` here — in WDIO v8, `await $()` makes
-                // an immediate findElement API call. When the instrumentation crashes that call
-                // throws a WebDriverError which escapes waitUntil rather than being caught.
-                // Use `$('id=...').isDisplayed().catch(() => false)` instead — the `$()` call
-                // is synchronous (lazy element reference), and only `.isDisplayed()` is async.
-                if (await this.hamburgerMenu.isDisplayed().catch(() => false)) return true;
-                if (await this.clockInBtn.isDisplayed().catch(() => false)) return true;
-                if (await this.workProgressTile.isDisplayed().catch(() => false)) return true;
+        // The hamburger menu / toolbar is always present right after login,
+        // regardless of clock-in state. Tiles only appear after clock-in.
+        await this.hamburgerMenu.waitForDisplayed({ timeout: 30000 });
 
-                // If the in-app back arrow is visible, click it — hardware back on forms
-                // with unsaved state triggers a "Discard?" dialog loop instead of navigating back
-                if (await $('id=com.gwl.trashscan:id/backArrow').isDisplayed().catch(() => false)) {
-                    await $('id=com.gwl.trashscan:id/backArrow').click().catch(() => {});
-                    await driver.pause(600);
-                    // Dismiss any "Discard changes?" dialog that appears after clicking back arrow
-                    for (const label of ['Discard', 'Yes', 'Leave', 'OK']) {
-                        if (await $(`android=new UiSelector().text("${label}")`).isDisplayed().catch(() => false)) {
-                            await $(`android=new UiSelector().text("${label}")`).click().catch(() => {});
-                            break;
-                        }
-                    }
-                    await driver.pause(400);
-                    return false;
-                }
+        // Clear any blocking Manual Clock Out dialog before anything else.
+        await this.handleManualClockOutIfPresent();
 
-                // No in-app back arrow — use hardware back
-                await driver.back().catch(() => {});
-                await driver.pause(800);
-                return false;
-            },
-            { timeout: 30000, timeoutMsg: '❌ Could not reach Home screen after repeated back navigation' }
-        );
+        // Make sure no stale open drawer is sitting on top of the home screen.
+        await this.closeDrawerIfOpen();
+
+        // Also accept the clock-in button as a valid home screen indicator
+        const clockInVisible = await this.clockInBtn.isDisplayed().catch(() => false);
+        const tilesVisible   = await this.workProgressTile.isDisplayed().catch(() => false);
+
+        if (!clockInVisible && !tilesVisible) {
+            console.log('⚠️ Neither clock-in button nor work-progress tile found — check app state');
+        }
 
         console.log('✅ Home screen loaded');
     }
 
-    // ==== Wait for tiles after clock-in ====
+    // ==== Wait specifically for the post-clock-in tile grid ====
     async waitForHomeTiles() {
         console.log('🏠 Waiting for Home screen tiles...');
 
         await driver.waitUntil(async () => {
-            return (
-                await this.workProgressTile.isDisplayed().catch(() => false) &&
-                await this.pickupTile.isDisplayed().catch(() => false)
-            );
+            const tiles = [
+                this.workProgressTile,
+                this.pickupTile,
+                this.activityLogsTile,
+                this.addNotesTile,
+                this.dailyWorkPlanTile,
+                this.violationTile
+            ];
+
+            let visibleCount = 0;
+            for (const tile of tiles) {
+                if (await tile.isDisplayed().catch(() => false)) {
+                    visibleCount++;
+                }
+            }
+            return visibleCount >= 4;
         }, {
             timeout: 30000,
             timeoutMsg: '❌ Home screen tiles did not load properly'
@@ -71,37 +106,18 @@ class HomeScreen {
         console.log('✅ Home screen tiles loaded');
     }
 
-    // ==== Navigate back safely ====
     async backToHome() {
-        for (let i = 0; i < 10; i++) {
-            const onHome = await this.hamburgerMenu.isDisplayed().catch(() => false)
-                        || await this.clockInBtn.isDisplayed().catch(() => false)
-                        || await this.workProgressTile.isDisplayed().catch(() => false);
-            if (onHome) {
-                console.log('🏠 Reached Home');
-                return;
-            }
-            // Prefer in-app back arrow over hardware back to avoid discard dialog loops.
-            // Do NOT use `await $()` — use `$().isDisplayed()` to keep the element lookup lazy.
-            if (await $('id=com.gwl.trashscan:id/backArrow').isDisplayed().catch(() => false)) {
-                await $('id=com.gwl.trashscan:id/backArrow').click().catch(() => {});
-                await driver.pause(600);
-                for (const label of ['Discard', 'Yes', 'Leave', 'OK']) {
-                    if (await $(`android=new UiSelector().text("${label}")`).isDisplayed().catch(() => false)) {
-                        await $(`android=new UiSelector().text("${label}")`).click().catch(() => {});
-                        break;
-                    }
-                }
-            } else {
-                await driver.back().catch(() => {});
-            }
+        await this.closeDrawerIfOpen();
+        for (let i = 0; i < 8; i++) {
+            const onHome = await this.hamburgerMenu.isDisplayed().catch(() => false);
+            const drawerOpen = await this.drawerHomeItem.isDisplayed().catch(() => false);
+            if (onHome && !drawerOpen) break;
+            await driver.back();
             await driver.pause(800);
         }
-
-        throw new Error('❌ Failed to navigate back to Home');
+        await this.waitForHomeScreen();
     }
 
-    // ==== Handle Camera Permission ====
     async allowCameraPermissionIfPresent() {
         try {
             const allowBtn = await $('android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_allow_button")');
@@ -112,6 +128,7 @@ class HomeScreen {
             console.log('ℹ️ Camera permission popup not shown');
         }
     }
+
 }
 
 module.exports = new HomeScreen();

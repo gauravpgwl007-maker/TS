@@ -56,7 +56,7 @@ exports.config = {
 
   capabilities: [{
     platformName: 'Android',
-    'appium:deviceName': 'emulator-5554',
+    'appium:deviceName': 'RZCX20CDGFV',
     //'appium:platformVersion': '16',
     'appium:automationName': 'UiAutomator2',
     'appium:appPackage': 'com.gwl.trashscan',
@@ -133,6 +133,41 @@ exports.config = {
       time: ts()
     };
     fs.appendFileSync(RESULTS_FILE, JSON.stringify(entry) + '\n', 'utf8');
+
+    // On failure, make a best-effort attempt to close any nav drawer left open
+    // by the failing step — an open drawer overlaps the home screen and
+    // silently swallows clicks meant for it, turning one failure into a chain
+    // of unrelated ones in whatever test runs next.
+    if (!passed && !crashed) {
+      try {
+        const drawerHomeItem = await $('id=com.gwl.trashscan:id/home');
+        for (let i = 0; i < 3; i++) {
+          const drawerOpen = await drawerHomeItem.isDisplayed().catch(() => false);
+          if (!drawerOpen) break;
+          await driver.back().catch(() => {});
+          await driver.pause(600);
+        }
+
+        // A failing step can also abort mid-flow on some other screen
+        // entirely (e.g. a form fill throwing partway through), leaving the
+        // app there for whatever test runs next. Best-effort back-press
+        // toward Home — but skip this on the login screen, since the early
+        // login tests are meant to end there.
+        const onLoginScreen =
+          await $('id=com.gwl.trashscan:id/usrName').isDisplayed().catch(() => false) ||
+          await $('id=com.gwl.trashscan:id/button_login').isDisplayed().catch(() => false);
+        if (!onLoginScreen) {
+          const hamburger = await $('id=com.gwl.trashscan:id/title_bar_left_menu');
+          for (let i = 0; i < 5; i++) {
+            if (await hamburger.isDisplayed().catch(() => false)) break;
+            await driver.back().catch(() => {});
+            await driver.pause(800);
+          }
+        }
+      } catch {
+        // best-effort only — don't fail the hook over recovery issues
+      }
+    }
 
     // If instrumentation crashed, relaunch the app so subsequent specs can continue
     if (crashed) {

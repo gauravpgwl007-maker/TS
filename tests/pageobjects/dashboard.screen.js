@@ -7,75 +7,43 @@ class DashboardScreen {
     get skipBtnUpper(){ return $('android=new UiSelector().text("SKIP")'); }
 
     async skipToLogin() {
-
-    try {
-
-        console.log('ℹ️ Waiting for app navigation...');
-
-        await driver.pause(5000);
-
-        const currentActivity = await driver.getCurrentActivity();
-
-        console.log(`ℹ️ Current Activity after wait: ${currentActivity}`);
-
-        // Tutorial screen
-        if (currentActivity.includes('TutorialActivity')) {
-
-            console.log('ℹ️ Tutorial screen detected');
-
-            const skipSelectors = [
-                this.skipBtn,
-                this.skipBtnText,
-                this.skipBtnUpper
-            ];
-
-            for (const btn of skipSelectors) {
-
-                try {
-
-                    if (await btn.waitForDisplayed({ timeout: 5000 })) {
-
-                        console.log('👉 Skip button found — clicking');
-
-                        await btn.click();
-
-                        await driver.pause(3000);
-
-                        return true;
-                    }
-
-                } catch (err) {
-                    console.log('ℹ️ Skip selector not visible');
-                }
-            }
-
-            console.log('⚠️ Tutorial detected but skip button not found');
-
-            return false;
+        try {
+            // Wait for splash to finish and either the tutorial or login screen to appear
+            await driver.waitUntil(async () => {
+                return (
+                    await this.skipBtn.isDisplayed().catch(() => false) ||
+                    await this.skipBtnText.isDisplayed().catch(() => false) ||
+                    await this.skipBtnUpper.isDisplayed().catch(() => false) ||
+                    await $('id=com.gwl.trashscan:id/button_login').isDisplayed().catch(() => false) ||
+                    await $('id=com.gwl.trashscan:id/usrName').isDisplayed().catch(() => false)
+                );
+            }, { timeout: 15000, interval: 500, timeoutMsg: 'App did not reach tutorial or login screen within 15s' });
+        } catch (err) {
+            console.log(`⚠️ ${err.message}`);
         }
 
-        // Already on login screen
-        if (
-            currentActivity.includes('Login') ||
-            currentActivity.includes('Auth')
-        ) {
-
-            console.log('ℹ️ Already on login screen');
-
-            return true;
+        // Primary: resource ID (source-verified)
+        if (await this.skipBtn.isDisplayed().catch(() => false)) {
+            console.log('👉 Skip button found (resource ID) — clicking');
+            await this.skipBtn.click();
+            await driver.pause(1000);
+            return;
         }
-
-        console.log(`ℹ️ Unexpected activity: ${currentActivity}`);
-
-        return false;
-
-    } catch (err) {
-
-        console.log(`⚠️ skipToLogin() error: ${err.message}`);
-
-        return false;
+        // Fallback: text "Skip" / "SKIP"
+        if (await this.skipBtnText.isDisplayed().catch(() => false)) {
+            console.log('👉 Skip button found (text) — clicking');
+            await this.skipBtnText.click();
+            await driver.pause(1000);
+            return;
+        }
+        if (await this.skipBtnUpper.isDisplayed().catch(() => false)) {
+            console.log('👉 Skip button found (SKIP) — clicking');
+            await this.skipBtnUpper.click();
+            await driver.pause(1000);
+            return;
+        }
+        console.log('ℹ️ Tutorial skip button not present — already past tutorial');
     }
-}
 }
 
 module.exports = new DashboardScreen();

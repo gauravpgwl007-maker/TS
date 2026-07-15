@@ -1,220 +1,113 @@
-const HomeScreen = require('./home.screen');
-
 class MenuScreen {
 
-    // =========================================================
     // ==== Drawer Open Button ====
-    // =========================================================
+    get menuButton() { return $('id=com.gwl.trashscan:id/title_bar_left_menu'); }
 
-    get menuButton() {
-        return $('id=com.gwl.trashscan:id/title_bar_left_menu');
-    }
+    // ==== Drawer Menu Items (source-verified from view_menu_left.xml — RelativeLayout IDs) ====
+    get menuHome()            { return $('id=com.gwl.trashscan:id/home'); }
+    get menuProfile()         { return $('id=com.gwl.trashscan:id/profile'); }
+    get menuActivate()        { return $('id=com.gwl.trashscan:id/activateLayout'); }
+    get menuPendingViolation(){ return $('id=com.gwl.trashscan:id/rl_pending_violation'); }
+    get menuLaunchTutorials() { return $('id=com.gwl.trashscan:id/play_intro'); }
+    get menuReportIssue()     { return $('id=com.gwl.trashscan:id/report_issue'); }
+    get menuUpdateLocation()  { return $('id=com.gwl.trashscan:id/update_location'); }
+    get menuChangeLanguage()  { return $('id=com.gwl.trashscan:id/change_language'); }
+    get menuForceCheckout()   { return $('id=com.gwl.trashscan:id/rl_force_checkout'); }
+    // Note: Android source has typo "boardcast" in the ID — must match exactly
+    get menuMessageBroadcast(){ return $('id=com.gwl.trashscan:id/rl_message_boardcast'); }
+    get menuCustomerSupport() { return $('id=com.gwl.trashscan:id/rl_customerSupport'); }
+    get menuPorterMap()       { return $('id=com.gwl.trashscan:id/porterMap'); }
+    get menuLogout()          { return $('id=com.gwl.trashscan:id/logout'); }
 
-    // =========================================================
-    // ==== Drawer Menu Items ====
-    // =========================================================
-
-    get menuHome() {
-        return $('id=com.gwl.trashscan:id/home');
-    }
-
-    get menuProfile() {
-        return $('id=com.gwl.trashscan:id/profile');
-    }
-
-    get menuActivate() {
-        return $('id=com.gwl.trashscan:id/activateLayout');
-    }
-
-    get menuPendingViolation() {
-        return $('id=com.gwl.trashscan:id/rl_pending_violation');
-    }
-
-    get menuLaunchTutorials() {
-        return $('id=com.gwl.trashscan:id/play_intro');
-    }
-
-    get menuReportIssue() {
-        return $('id=com.gwl.trashscan:id/report_issue');
-    }
-
-    get menuUpdateLocation() {
-        return $('id=com.gwl.trashscan:id/update_location');
-    }
-
-    get menuChangeLanguage() {
-        return $('id=com.gwl.trashscan:id/change_language');
-    }
-
-    get menuForceCheckout() {
-        return $('id=com.gwl.trashscan:id/rl_force_checkout');
-    }
-
-    // =========================================================
-    // ==== Check Home Screen ====
-    // =========================================================
-
-    async isHomeScreen() {
-
-        return await HomeScreen.workProgressTile
-            .isDisplayed()
-            .catch(() => false);
-    }
-
-    // =========================================================
-    // ==== Wait For Home Screen ====
-    // =========================================================
-
-    async waitForHome() {
-
-        await HomeScreen.workProgressTile.waitForDisplayed({
-            timeout: 10000
-        });
-
-        console.log('✅ Home Screen visible');
-    }
-
-    // =========================================================
     // ==== Open Drawer ====
-    // =========================================================
-
     async openDrawer() {
-
-        const drawerVisible = await this.menuHome
-            .isDisplayed()
-            .catch(() => false);
-
-        if (drawerVisible) {
-
-            console.log('📂 Drawer already open');
-
-            return;
+        try {
+            await this.menuButton.waitForDisplayed({ timeout: 5000 });
+            await this.menuButton.click();
+            console.log('📂 Drawer menu opened');
+            await driver.pause(800);
+        } catch (err) {
+            console.log('⚠️ Could not open drawer via button, trying swipe...');
+            const { width, height } = await driver.getWindowSize();
+            await driver.action('pointer')
+                .move({ x: 5, y: height / 2 })
+                .down()
+                .move({ x: Math.floor(width * 0.4), y: height / 2 })
+                .up()
+                .perform();
+            await driver.pause(800);
         }
+    }
 
-        await this.menuButton.waitForDisplayed({
-            timeout: 10000
-        });
-
-        await this.menuButton.click();
-
-        console.log('📂 Drawer opened');
-
+    // ==== Return to Home via Menu ====
+    async returnViaMenu() {
+        console.log('🔁 Returning to Home via drawer menu...');
+        await driver.pause(500);
+        await this.openDrawer();
+        await this.menuHome.waitForDisplayed({ timeout: 5000 });
+        await this.menuHome.click();
+        console.log('🏠 Returned to Home via drawer menu');
         await driver.pause(1000);
     }
 
-    // =========================================================
-    // ==== Return Home Safely ====
-    // =========================================================
-
-    async returnToHome() {
-
-        console.log('🏠 Returning to Home...');
-
-        //
-        // Try back navigation gently
-        //
-        for (let i = 0; i < 3; i++) {
-
-            //
-            // Already home
-            //
-            if (await this.isHomeScreen()) {
-
-                console.log('✅ Back on Home');
-
-                return;
-            }
-
-            //
-            // Android back
-            //
-            await driver.back();
-
-            await driver.pause(2000);
-        }
-
-        //
-        // Final validation
-        //
-        if (await this.isHomeScreen()) {
-
-            console.log('✅ Back on Home');
-
-            return;
-        }
-
-        throw new Error('❌ Failed to return to Home screen');
-    }
-
-    // =========================================================
-    // ==== Common Navigation ====
-    // =========================================================
-
-    async navigateTo(menuElement, menuName) {
-
-        //
-        // Open drawer
-        //
+    // ==== Shared drawer-item navigation ====
+    // If the target item never appears, the drawer must not be left open —
+    // an open drawer overlaps the home screen and silently swallows whatever
+    // the next step (or the next test) clicks, turning one failure into a
+    // chain of unrelated ones. So close it before rethrowing.
+    async _navigateDrawerItem(item, label, emoji = '➡️') {
         await this.openDrawer();
-
-        //
-        // Wait for menu item
-        //
-        await menuElement.waitForDisplayed({
-            timeout: 10000
-        });
-
-        //
-        // Click menu item
-        //
-        await menuElement.click();
-
-        console.log(`✅ Navigated to ${menuName}`);
-
-        //
-        // Stabilize navigation
-        //
-        await driver.pause(2000);
+        try {
+            await item.waitForDisplayed({ timeout: 8000 });
+            await item.click();
+            console.log(`${emoji} Navigated to ${label}`);
+        } catch (err) {
+            console.log(`⚠️ Could not navigate to ${label} — closing drawer`);
+            await driver.back().catch(() => {});
+            await driver.pause(600);
+            throw err;
+        }
     }
 
-    // =========================================================
-    // ==== Menu Actions ====
-    // =========================================================
-
+    // ==== Menu Navigation Actions ====
     async goToHome() {
-        await this.navigateTo(this.menuHome, 'Home');
+        await this._navigateDrawerItem(this.menuHome, 'Home', '🏠');
     }
 
     async goToProfile() {
-        await this.navigateTo(this.menuProfile, 'Profile');
+        await this._navigateDrawerItem(this.menuProfile, 'Profile', '👤');
     }
 
     async goToActivate() {
-        await this.navigateTo(this.menuActivate, 'Activate');
+        await this._navigateDrawerItem(this.menuActivate, 'Activate', '✅');
     }
 
     async goToPendingViolation() {
-        await this.navigateTo(this.menuPendingViolation, 'Pending Violation');
+        await this._navigateDrawerItem(this.menuPendingViolation, 'Pending Violation', '⚠️');
     }
 
     async goToLaunchTutorials() {
-        await this.navigateTo(this.menuLaunchTutorials, 'Launch Tutorials');
+        await this._navigateDrawerItem(this.menuLaunchTutorials, 'Launch Tutorials', '📚');
     }
 
     async goToReportIssue() {
-        await this.navigateTo(this.menuReportIssue, 'Report Issue');
+        await this._navigateDrawerItem(this.menuReportIssue, 'Report Issue', '🚨');
     }
 
     async goToUpdateLocation() {
-        await this.navigateTo(this.menuUpdateLocation, 'Update Location');
+        await this._navigateDrawerItem(this.menuUpdateLocation, 'Update Location', '📍');
     }
 
     async goToChangeLanguage() {
-        await this.navigateTo(this.menuChangeLanguage, 'Change Language');
+        await this._navigateDrawerItem(this.menuChangeLanguage, 'Change Language', '🌐');
     }
 
     async goToForceCheckout() {
-        await this.navigateTo(this.menuForceCheckout, 'Force Checkout');
+        await this._navigateDrawerItem(this.menuForceCheckout, 'Force Checkout', '🔄');
+    }
+
+    async goToMessageBroadcast() {
+        await this._navigateDrawerItem(this.menuMessageBroadcast, 'Message Broadcast', '📢');
     }
 }
 

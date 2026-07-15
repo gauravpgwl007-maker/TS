@@ -8,10 +8,6 @@ describe('Violation Tile', () => {
 
         await ViolationScreen.openViolationManual();
 
-        // Must use closeManualForm() — hardware back triggers a discard dialog that
-        // loops forever (back opens dialog, back dismisses dialog, form stays open)
-        await ViolationScreen.closeManualForm();
-
         await HomeScreen.backToHome();
 
         expect(true).toBe(true);

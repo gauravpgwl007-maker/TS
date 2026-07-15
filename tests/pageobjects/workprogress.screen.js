@@ -1,251 +1,104 @@
-// workprogress.screen.js
-
-const HomeScreen = require('./home.screen');
-
 class WorkProgressScreen {
 
-    // ================================================================
-    // ==== Home Screen ====
-    // ================================================================
+    // ==== Tile on Home Screen ====
+    get workProgressTile() { return $('id=com.gwl.trashscan:id/ll_work_progress'); }
 
-    get workProgressTile() {
-        return $('id=com.gwl.trashscan:id/ll_work_progress');
-    }
+    // ==== Porter Work Progress (source-verified via live UI dump: accordion-style rows) ====
+    get recyclerView()      { return $('id=com.gwl.trashscan:id/recyclerView'); }
+    get noRecordView()      { return $('id=com.gwl.trashscan:id/tv_noRecordView'); }
 
-    // ================================================================
-    // ==== Work Progress Screen ====
-    // ================================================================
+    // ==== Property List Items ====
+    // Each row is a collapsed accordion header (property name + expand/collapse
+    // chevron). Expanding it reveals the Check In/Out button inline — there is
+    // no separate "property detail" screen to navigate to.
+    get firstPropertyRow()  { return $('id=com.gwl.trashscan:id/cv_propertyDetailsContainer'); }
+    get firstPropertyName() { return $('id=com.gwl.trashscan:id/tv_propertyName'); }
+    get firstExpandCollapseBtn() { return $('id=com.gwl.trashscan:id/iv_buttonExpandCollapse'); }
 
-    get recyclerView() {
-        return $('id=com.gwl.trashscan:id/recyclerView');
-    }
+    // ==== Expanded Row Contents ====
+    get checkInOutBtn()  { return $('id=com.gwl.trashscan:id/btn_buttonCheckInCheckOut'); }
+    get checkInTime()    { return $('id=com.gwl.trashscan:id/tv_checkInTime'); }
 
-    get propertyItems() {
-        return $$('id=com.gwl.trashscan:id/parent_cv_assigned_list');
-    }
-
-    get emptyStateText() {
-        return $('android=new UiSelector().textContains("No")');
-    }
-
-    // ================================================================
-    // ==== Property Actions ====
-    // ================================================================
-
-    get checkInButton() {
-        return $('android=new UiSelector().resourceId("com.gwl.trashscan:id/btn_buttonCheckInCheckOut")');
-    }
-
-    // ================================================================
-    // ==== Popup ====
-    // ================================================================
-
-    get reasonInput() {
-        return $('android=new UiSelector().resourceId("com.gwl.trashscan:id/edtMessage")');
-    }
-
-    get submitButton() {
-        return $('android=new UiSelector().resourceId("com.gwl.trashscan:id/buttonSubmit")');
-    }
+    // ==== Screen Identifiers ====
+    get screenTitle()      { return $('android=new UiSelector().textContains("Work Progress")'); }
+    get screenIdentifier() { return $('android=new UiSelector().textContains("Progress")'); }
 
     // ================================================================
     // ==== Open Work Progress ====
     // ================================================================
-
     async openWorkProgress() {
-
-        console.log('⏳ Waiting for Work Progress tile...');
-
-        await this.workProgressTile.waitForDisplayed({
-            timeout: 20000
-        });
-
-        console.log('👉 Clicking Work Progress tile');
-
+        await this.workProgressTile.waitForDisplayed({ timeout: 15000 });
         await this.workProgressTile.click();
+        await this.waitForWorkProgressScreen();
+    }
 
-        await this.recyclerView.waitForDisplayed({
-            timeout: 20000
-        });
-
+    // ================================================================
+    // ==== Wait for Screen ====
+    // ================================================================
+    async waitForWorkProgressScreen() {
+        await driver.waitUntil(
+            async () => {
+                if (await this.recyclerView.isDisplayed().catch(() => false))      return true;
+                if (await this.noRecordView.isDisplayed().catch(() => false))      return true;
+                if (await this.firstPropertyRow.isDisplayed().catch(() => false))  return true;
+                if (await this.screenTitle.isDisplayed().catch(() => false))       return true;
+                // Admin service report fallback
+                if (await $('id=com.gwl.trashscan:id/recyclerviewList').isDisplayed().catch(() => false)) return true;
+                if (await $('id=com.gwl.trashscan:id/textViewNoData').isDisplayed().catch(() => false))   return true;
+                return false;
+            },
+            { timeout: 20000, timeoutMsg: '❌ Work Progress screen did not load' }
+        );
         console.log('✅ Work Progress screen loaded');
-
-        await driver.pause(3000);
     }
 
     // ================================================================
-    // ==== Expand Property & Find Check-In ====
+    // ==== State Checks ====
     // ================================================================
-
-    async expandAvailableProperty() {
-
-        console.log('⏳ Waiting for property dropdowns...');
-
-        await driver.pause(5000);
-
-        // ============================================================
-        // First Property
-        // ============================================================
-
-        const firstDropdown = await $(
-            'android=new UiSelector().resourceId("com.gwl.trashscan:id/iv_buttonExpandCollapse").instance(0)'
-        );
-
-        await firstDropdown.waitForDisplayed({
-            timeout: 15000
-        });
-
-        console.log('👉 Expanding first property');
-
-        await firstDropdown.click();
-
-        await driver.pause(3000);
-
-        const checkInVisible =
-            await this.checkInButton.isDisplayed().catch(() => false);
-
-        if (checkInVisible) {
-
-            console.log('✅ Check-In available in first property');
-
-            return;
-        }
-
-        console.log('ℹ️ Check-In not available in first property');
-
-        // Collapse first property
-        await firstDropdown.click();
-
-        await driver.pause(2000);
-
-        // ============================================================
-        // Second Property
-        // ============================================================
-
-        const secondDropdown = await $(
-            'android=new UiSelector().resourceId("com.gwl.trashscan:id/iv_buttonExpandCollapse").instance(1)'
-        );
-
-        await secondDropdown.waitForDisplayed({
-            timeout: 10000
-        });
-
-        console.log('👉 Expanding second property');
-
-        await secondDropdown.click();
-
-        await driver.pause(3000);
-
-        console.log('✅ Second property expanded');
-    }
-
-    // ================================================================
-    // ==== Click Check-In ====
-    // ================================================================
-
-    async clickCheckIn() {
-
-        await this.checkInButton.waitForDisplayed({
-            timeout: 15000
-        });
-
-        await this.checkInButton.click();
-
-        console.log('👉 Clicked Check-In button');
-
-        await driver.pause(2000);
-    }
-
-    // ================================================================
-    // ==== Submit Reason ====
-    // ================================================================
-
-    async enterReasonAndSubmit(reason) {
-
-        await driver.hideKeyboard().catch(() => {});
-
-        await this.reasonInput.waitForDisplayed({
-            timeout: 10000
-        });
-
-        await this.reasonInput.setValue(reason);
-
-        await this.submitButton.waitForDisplayed({
-            timeout: 10000
-        });
-
-        await this.submitButton.click();
-
-        console.log(`✅ Submitted reason: ${reason}`);
-
-        await driver.pause(3000);
-    }
-
-    // ================================================================
-    // ==== Validation Helpers ====
-    // ================================================================
-
     async hasProperties() {
-
-        const count = await this.propertyItems.length;
-
-        console.log(`ℹ️ Property count: ${count}`);
-
-        return count > 0;
+        return await this.firstPropertyRow.isDisplayed().catch(() => false)
+            || await this.recyclerView.isDisplayed().catch(() => false);
     }
 
     async isEmptyState() {
-
-        return await this.emptyStateText
-            .isDisplayed()
-            .catch(() => false);
+        return await this.noRecordView.isDisplayed().catch(() => false)
+            || await $('id=com.gwl.trashscan:id/textViewNoData').isDisplayed().catch(() => false);
     }
 
     // ================================================================
-    // ==== Complete Check-In Flow ====
+    // ==== Expand First Property Row ====
     // ================================================================
-
-    async completeCheckInFlow(reason) {
-
-        await this.openWorkProgress();
-
-        await this.expandAvailableProperty();
-
-        await this.clickCheckIn();
-
-        await this.enterReasonAndSubmit(reason);
-
-        console.log('🚀 Full Check-In Flow Completed');
-    }
-
-    // ================================================================
-    // ==== Optional Popup Handler ====
-    // ================================================================
-
-    async _submitReasonIfPresent(reason) {
-
+    async openFirstProperty() {
         try {
-
-            await driver.hideKeyboard().catch(() => {});
-
-            await this.reasonInput.waitForDisplayed({
-                timeout: 5000
-            });
-
-            await this.reasonInput.setValue(reason);
-
-            await this.submitButton.waitForDisplayed({
-                timeout: 3000
-            });
-
-            await this.submitButton.click();
-
-            console.log(`✅ Reason submitted: ${reason}`);
-
+            await this.firstExpandCollapseBtn.waitForDisplayed({ timeout: 10000 });
+            await this.firstExpandCollapseBtn.click();
+            console.log('📋 First property row expanded');
+            await this.checkInOutBtn.waitForDisplayed({ timeout: 8000 });
         } catch {
-
-            console.log('ℹ️ No reason popup appeared — continuing');
+            console.log('⚠️ No property item available to expand');
         }
+    }
+
+    // ================================================================
+    // ==== Perform Check In (only if not already checked in) ====
+    // ================================================================
+    async performCheckIn() {
+        const visible = await this.checkInOutBtn.isDisplayed().catch(() => false);
+        if (!visible) {
+            console.log('ℹ️ Check In/Out button not visible — skipping');
+            return false;
+        }
+
+        const label = await this.checkInOutBtn.getText().catch(() => '');
+        if (!/check in/i.test(label)) {
+            console.log(`ℹ️ Property button shows "${label}" — already checked in, skipping`);
+            return false;
+        }
+
+        await this.checkInOutBtn.click();
+        await driver.pause(1500);
+        console.log('✅ Property Check In performed');
+        return true;
     }
 }
 

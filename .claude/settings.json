@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs ls *)"
+      "Bash(xargs ls *)",
+      "Bash(adb devices *)",
+      "Bash(where adb *)",
+      "Bash(adb shell *)",
+      "Bash(adb pull *)",
+      "Bash(export MSYS_NO_PATHCONV=1)",
+      "Bash(node \"C:\\\\Users\\\\gwl\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-gwl-Documents-Automation-Backup\\\\c132e479-cee8-49e9-9e5b-e53a89edca71\\\\scratchpad\\\\parse_dump.js\" \"C:\\\\Users\\\\gwl\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-gwl-Documents-Automation-Backup\\\\c132e479-cee8-49e9-9e5b-e53a89edca71\\\\scratchpad\\\\home_check.xml\")",
+      "Bash(node \"C:\\\\Users\\\\gwl\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-gwl-Documents-Automation-Backup\\\\c132e479-cee8-49e9-9e5b-e53a89edca71\\\\scratchpad\\\\parse_dump.js\" \"C:\\\\Users\\\\gwl\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-gwl-Documents-Automation-Backup\\\\c132e479-cee8-49e9-9e5b-e53a89edca71\\\\scratchpad\\\\home_check2.xml\")",
+      "Bash(adb exec-out *)",
+      "Bash(node --check tests/pageobjects/home.screen.js)"
     ]
   }
 }

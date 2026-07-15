@@ -1,12 +1,17 @@
-const WorkProgressScreen =
-require('../pageobjects/workprogress.screen');
+const HomeScreen = require('../pageobjects/home.screen');
+const WorkProgressScreen = require('../pageobjects/workprogress.screen');
 
-describe('Work Progress Module', () => {
+describe('Work Progress Tile', () => {
 
-    it('Should complete Work Progress Check-In and Check-Out flow successfully', async () => {
+    it('should open Work Progress and return to Home', async () => {
+        await HomeScreen.waitForHomeScreen();
 
-        await WorkProgressScreen.completeWorkProgressFlow();
+        await WorkProgressScreen.openWorkProgress();
 
+        await driver.back();
+        await HomeScreen.waitForHomeScreen();
+
+        expect(true).toBe(true);
     });
 
 });

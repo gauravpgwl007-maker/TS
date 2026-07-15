@@ -8,11 +8,16 @@ class PickupScreen {
     get switchCameraBtn()   { return $('id=com.gwl.trashscan:id/imageView_switch_camera'); }
     get flashBtn()          { return $('id=com.gwl.trashscan:id/imageView_flash_camera'); }
     get activityLogsBar()   { return $('id=com.gwl.trashscan:id/tv_activity_log_view'); }
-    get backArrow() {
-    return $('android=new UiSelector().resourceId("com.gwl.trashscan:id/arrow_view")');
-}
+    get arrowView()         { return $('id=com.gwl.trashscan:id/arrow_view'); }
     get bottomSheetLayout() { return $('id=com.gwl.trashscan:id/bottom_sheet_layout'); }
     get barcodeValue()      { return $('id=com.gwl.trashscan:id/barcode_value'); }
+
+    // ==== Expanded Activity Logs Modal (BottomSheetDialogFragment) ====
+    // This dialog is not cancelable via back button or tap-outside — verified
+    // live on-device: pressing back and tapping the scrim both left it open.
+    // Its own header must be tapped again to dismiss it.
+    get activityLogsDialogHeader() { return $('id=com.gwl.trashscan:id/parent_layout'); }
+    get activityLogsRecyclerView() { return $('id=com.gwl.trashscan:id/recyclerview_activity_log'); }
 
     // ================================================================
     // ==== Open Pickup ====
@@ -57,7 +62,7 @@ class PickupScreen {
         try {
             if (await this.activityLogsBar.isDisplayed().catch(() => false)) {
                 await this.activityLogsBar.click();
-                await driver.pause(1000);
+                await this.activityLogsDialogHeader.waitForDisplayed({ timeout: 5000 });
                 console.log('📋 Activity Logs panel expanded');
             }
         } catch {
@@ -65,18 +70,24 @@ class PickupScreen {
         }
     }
 
-    async backFromPickup() {
+    // ================================================================
+    // ==== Collapse / Close Activity Logs Panel ====
+    // Tap the dialog's own header again to dismiss it — back/tap-outside
+    // don't work here.
+    // ================================================================
+    async collapseActivityLogsPanel() {
+        try {
+            if (await this.activityLogsDialogHeader.isDisplayed().catch(() => false)) {
+                await this.activityLogsDialogHeader.click();
+                await this.activityLogsDialogHeader.waitForDisplayed({ timeout: 5000, reverse: true });
+                console.log('📋 Activity Logs panel collapsed');
+            }
+        } catch {
+            console.log('⚠️ Could not collapse Activity Logs panel');
+        }
+    }
 
-    await this.backArrow.waitForDisplayed({
-        timeout: 10000
-    });
-
-    await this.backArrow.click();
-
-    console.log('⬅️ Navigated back from Pickup screen');
-
-    await driver.pause(2000);
-}// ================================================================
+    // ================================================================
     // ==== Camera Permission ====
     // ================================================================
     async allowCameraPermissionIfPresent() {
